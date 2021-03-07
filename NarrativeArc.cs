@@ -24,7 +24,7 @@ namespace NarrativeArc
 
         public string PluginName { get; } = "Narrative Arc";
         public string PluginType { get; } = "Language Analysis";
-        public string PluginVersion { get; } = "1.1.0";
+        public string PluginVersion { get; } = "1.1.01";
         public string PluginAuthor { get; } = "Ryan L. Boyd (ryan@ryanboyd.io)";
         public string PluginDescription { get; } = "Calculates the Narrative Arc scores for each text. This plugin provides that actual \"trajectory\" data (i.e., staging, plot progression, and cognitive tension scores across text segments). This plugin also provides the \"narrativity\" scores for each text: how \"narrative-like\" each text is along each narrative dimension, plus the overall average." + Environment.NewLine + Environment.NewLine + 
                                                    "For more information on the Narrative Arc and underlying methods, please see the following paper and website:" + Environment.NewLine + Environment.NewLine +
@@ -35,7 +35,7 @@ namespace NarrativeArc
 
         DictionaryMetaObject AONDict { get; set; }
         private int Segments { get; set; } = 5;
-        private string scalingMethod { get; set; } = "Z-Score";
+        private string scalingMethod { get; set; } = "Linear FS";
         private bool includeDataPoints { get; set; } = true;
         private bool AllowDimensionDependence { get; set; } = false;
 
