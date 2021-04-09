@@ -36,13 +36,15 @@
             this.ScalingMethodDropDown = new System.Windows.Forms.ComboBox();
             this.includeDataPointsCheckbox = new System.Windows.Forms.CheckBox();
             this.AllowOverlapsCheckbox = new System.Windows.Forms.CheckBox();
+            this.scoringMethodDropdown = new System.Windows.Forms.ComboBox();
+            this.scoringMethodLabel = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.SegmentsUpDown)).BeginInit();
             this.SuspendLayout();
             // 
             // OKButton
             // 
             this.OKButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.OKButton.Location = new System.Drawing.Point(112, 237);
+            this.OKButton.Location = new System.Drawing.Point(138, 289);
             this.OKButton.Name = "OKButton";
             this.OKButton.Size = new System.Drawing.Size(118, 40);
             this.OKButton.TabIndex = 6;
@@ -71,7 +73,7 @@
             0,
             0});
             this.SegmentsUpDown.Name = "SegmentsUpDown";
-            this.SegmentsUpDown.Size = new System.Drawing.Size(120, 26);
+            this.SegmentsUpDown.Size = new System.Drawing.Size(175, 26);
             this.SegmentsUpDown.TabIndex = 13;
             this.SegmentsUpDown.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
             this.SegmentsUpDown.Value = new decimal(new int[] {
@@ -98,14 +100,14 @@
             this.ScalingMethodDropDown.FormattingEnabled = true;
             this.ScalingMethodDropDown.Location = new System.Drawing.Point(204, 91);
             this.ScalingMethodDropDown.Name = "ScalingMethodDropDown";
-            this.ScalingMethodDropDown.Size = new System.Drawing.Size(121, 26);
+            this.ScalingMethodDropDown.Size = new System.Drawing.Size(176, 26);
             this.ScalingMethodDropDown.TabIndex = 15;
             // 
             // includeDataPointsCheckbox
             // 
             this.includeDataPointsCheckbox.AutoSize = true;
             this.includeDataPointsCheckbox.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.includeDataPointsCheckbox.Location = new System.Drawing.Point(15, 141);
+            this.includeDataPointsCheckbox.Location = new System.Drawing.Point(15, 190);
             this.includeDataPointsCheckbox.Name = "includeDataPointsCheckbox";
             this.includeDataPointsCheckbox.Size = new System.Drawing.Size(219, 20);
             this.includeDataPointsCheckbox.TabIndex = 16;
@@ -116,19 +118,42 @@
             // 
             this.AllowOverlapsCheckbox.AutoSize = true;
             this.AllowOverlapsCheckbox.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.AllowOverlapsCheckbox.Location = new System.Drawing.Point(15, 183);
+            this.AllowOverlapsCheckbox.Location = new System.Drawing.Point(15, 225);
             this.AllowOverlapsCheckbox.Name = "AllowOverlapsCheckbox";
             this.AllowOverlapsCheckbox.Size = new System.Drawing.Size(276, 20);
             this.AllowOverlapsCheckbox.TabIndex = 17;
             this.AllowOverlapsCheckbox.Text = "Allow Narrative Dimension Dependencies";
             this.AllowOverlapsCheckbox.UseVisualStyleBackColor = true;
             // 
+            // scoringMethodComboBox
+            // 
+            this.scoringMethodDropdown.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.scoringMethodDropdown.Font = new System.Drawing.Font("Consolas", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.scoringMethodDropdown.FormattingEnabled = true;
+            this.scoringMethodDropdown.Location = new System.Drawing.Point(204, 140);
+            this.scoringMethodDropdown.Name = "scoringMethodComboBox";
+            this.scoringMethodDropdown.Size = new System.Drawing.Size(176, 26);
+            this.scoringMethodDropdown.TabIndex = 19;
+            // 
+            // scoringMethodLabel
+            // 
+            this.scoringMethodLabel.AutoSize = true;
+            this.scoringMethodLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.scoringMethodLabel.Location = new System.Drawing.Point(11, 142);
+            this.scoringMethodLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
+            this.scoringMethodLabel.Name = "scoringMethodLabel";
+            this.scoringMethodLabel.Size = new System.Drawing.Size(135, 20);
+            this.scoringMethodLabel.TabIndex = 18;
+            this.scoringMethodLabel.Text = "Scoring Method";
+            // 
             // SettingsForm_NarrativeArc
             // 
             this.AcceptButton = this.OKButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(342, 289);
+            this.ClientSize = new System.Drawing.Size(392, 341);
+            this.Controls.Add(this.scoringMethodDropdown);
+            this.Controls.Add(this.scoringMethodLabel);
             this.Controls.Add(this.AllowOverlapsCheckbox);
             this.Controls.Add(this.includeDataPointsCheckbox);
             this.Controls.Add(this.ScalingMethodDropDown);
@@ -155,5 +180,7 @@
         private System.Windows.Forms.ComboBox ScalingMethodDropDown;
         private System.Windows.Forms.CheckBox includeDataPointsCheckbox;
         private System.Windows.Forms.CheckBox AllowOverlapsCheckbox;
+        private System.Windows.Forms.ComboBox scoringMethodDropdown;
+        private System.Windows.Forms.Label scoringMethodLabel;
     }
 }

@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="AnalyzeText.cs" />
     <Compile Include="Dictionary.cs" />
+    <Compile Include="Frechet-Distance.cs" />
     <Compile Include="ParseDictionary.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>

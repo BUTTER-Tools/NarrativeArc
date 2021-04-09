@@ -24,9 +24,9 @@ namespace NarrativeArc
 
         public string PluginName { get; } = "Narrative Arc";
         public string PluginType { get; } = "Language Analysis";
-        public string PluginVersion { get; } = "1.1.01";
+        public string PluginVersion { get; } = "1.2.0";
         public string PluginAuthor { get; } = "Ryan L. Boyd (ryan@ryanboyd.io)";
-        public string PluginDescription { get; } = "Calculates the Narrative Arc scores for each text. This plugin provides that actual \"trajectory\" data (i.e., staging, plot progression, and cognitive tension scores across text segments). This plugin also provides the \"narrativity\" scores for each text: how \"narrative-like\" each text is along each narrative dimension, plus the overall average." + Environment.NewLine + Environment.NewLine + 
+        public string PluginDescription { get; } = "Calculates the Narrative Arc scores for each text. This plugin provides that actual \"trajectory\" data (i.e., staging, plot progression, and cognitive tension scores across text segments). This plugin also provides the \"narrativity\" scores for each text: how \"narrative-like\" each text is along each narrative dimension, plus the overall average." + Environment.NewLine + Environment.NewLine +
                                                    "For more information on the Narrative Arc and underlying methods, please see the following paper and website:" + Environment.NewLine + Environment.NewLine +
                                                    "Boyd, R. L., Blackburn, K. G., & Pennebaker, J. W. (2020). The narrative arc: Revealing core narrative structures through text analysis. Science Advances, 6(32), 1-9. https://doi.org/10.1126/sciadv.aba2196" + Environment.NewLine + Environment.NewLine +
                                                    "https://www.arcofnarrative.com";
@@ -36,6 +36,8 @@ namespace NarrativeArc
         DictionaryMetaObject AONDict { get; set; }
         private int Segments { get; set; } = 5;
         private string scalingMethod { get; set; } = "Linear FS";
+        private string narrativityScoringMethod { get; set; } = "Fréchet Distance";
+        private Dictionary<string, double> FrechetRescalingValues { get; set; }
         private bool includeDataPoints { get; set; } = true;
         private bool AllowDimensionDependence { get; set; } = false;
 
@@ -63,9 +65,10 @@ namespace NarrativeArc
         private static double CogTensC = -0.529662782519794;
         private static double CogTensX2 = -0.0629503763664916;
         private static double CogTensX = 0.407393185836139;
-        
+
 
         //the normative arrays from our research
+        private Dictionary<string, List<double[]>> NormativeArcsFrechet {get;set;}
         private Dictionary<string, double[]> NormativeArcs { get; set; }
         private Dictionary<string, double[]> NormativeDeltas { get; set; }
 
@@ -75,7 +78,7 @@ namespace NarrativeArc
         public void ChangeSettings()
         {
 
-            using (var form = new SettingsForm_NarrativeArc(Segments, scalingMethod, includeDataPoints, AllowDimensionDependence))
+            using (var form = new SettingsForm_NarrativeArc(Segments, scalingMethod, narrativityScoringMethod, includeDataPoints, AllowDimensionDependence))
             {
 
 
@@ -87,6 +90,7 @@ namespace NarrativeArc
                 if (result == DialogResult.OK)
                 {
                     scalingMethod = form.scalingMethod;
+                    narrativityScoringMethod = form.narrativityScoringMethod;
                     Segments = form.Segments;
                     includeDataPoints = form.includeDataPoints;
                     AllowDimensionDependence = form.allowOverlaps;
@@ -119,6 +123,10 @@ namespace NarrativeArc
                 //2: narrativity for staging
                 //3: narrativity for plotprog
                 //4: narrativity for cogtens
+
+                
+                
+
                 string[] Output;
                 if (includeDataPoints)
                 {
@@ -131,7 +139,16 @@ namespace NarrativeArc
 
 
                 string[][] segmentTexts = splitter.SegmentIncomingText(Segments, Input.StringArrayList[i]);
-                Dictionary<string, double[]> results = new Dictionary<string, double[]> { {"Staging", new double[Segments] }, { "PlotProg", new double[Segments] }, { "CogTension", new double[Segments] } };
+                
+                //set up our dictionaries that will hold results from this particular text
+                Dictionary<string, double[]> results = new Dictionary<string, double[]> { {"Staging", new double[Segments] },
+                                                                                            { "PlotProg", new double[Segments] },
+                                                                                            { "CogTension", new double[Segments] } };
+                //this list is used for calculating Frechet Distance
+                Dictionary<string, List<double[]>> frechetList = new Dictionary<string, List<double[]>> { { "Staging", new List<double[]>() },
+                                                                                                          { "PlotProg", new List<double[]>() },
+                                                                                                          { "CogTension", new List<double[]>() } };
+
                 int TokenCount = 0;
 
 
@@ -148,21 +165,59 @@ namespace NarrativeArc
                 //z-score or Linear FS the results
                 results = scaleResults(results);
 
+                //now that the results are scaled, we can set up our comparison dictionary 
+                //for doing Frechet distance calculations
+                if (narrativityScoringMethod == "Fréchet Distance")
+                {
+                    for (int segCount = 0; segCount < Segments; segCount++)
+                    {
+                        frechetList["Staging"].Add(new double[] { segCount + 1, results["Staging"][segCount] });
+                        frechetList["PlotProg"].Add(new double[] { segCount + 1, results["PlotProg"][segCount] });
+                        frechetList["CogTension"].Add(new double[] { segCount + 1, results["CogTension"][segCount] });
+                    }
+                }
 
+
+                //now we're moving in a direction of setting up the output
 
                 Output[0] = TokenCount.ToString();
 
                 //calculate and store the narrativity scores
                 Dictionary<string, double> narrativityScores = new Dictionary<string, double>();
-                narrativityScores.Add("Staging", scoreNarrativity(results["Staging"], NormativeDeltas["Staging"]));
-                narrativityScores.Add("PlotProg", scoreNarrativity(results["PlotProg"], NormativeDeltas["PlotProg"]));
-                narrativityScores.Add("CogTension", scoreNarrativity(results["CogTension"], NormativeDeltas["CogTension"]));
-                narrativityScores.Add("Overall", 
-                                                (narrativityScores["Staging"] + 
-                                                narrativityScores["PlotProg"] +
-                                                narrativityScores["CogTension"]) / 3);
+                narrativityScores.Add("Staging", 0.0);
+                narrativityScores.Add("PlotProg", 0.0);
+                narrativityScores.Add("CogTension", 0.0);
 
-                //calculate the narrativity scores
+
+
+                if (narrativityScoringMethod == "Fréchet Distance")
+                {
+                    narrativityScores["Staging"] = FrechetDistance(frechetList["Staging"], NormativeArcsFrechet["Staging"]);
+                    narrativityScores["PlotProg"] = FrechetDistance(frechetList["PlotProg"], NormativeArcsFrechet["PlotProg"]);
+                    narrativityScores["CogTension"] = FrechetDistance(frechetList["CogTension"], NormativeArcsFrechet["CogTension"]);
+
+                    //if we're doing the Frechet distance calculation, we want the scale of the output to be somewhat interpretable.
+                    //therefore, we take those scores and rescale them to something approximating a -100 to +100 range
+                    narrativityScores["Staging"] = (1 - (narrativityScores["Staging"] / FrechetRescalingValues["Staging"])) * 100;
+                    narrativityScores["PlotProg"] = (1 - (narrativityScores["PlotProg"] / FrechetRescalingValues["PlotProg"])) * 100;
+                    narrativityScores["CogTension"] = (1 - (narrativityScores["CogTension"] / FrechetRescalingValues["CogTension"])) * 100;
+
+                }
+                else if (narrativityScoringMethod == "Diff. Score Similarities")
+                {
+                    narrativityScores["Staging"] = ScoreNarrativityDifferenceMethod(results["Staging"], NormativeDeltas["Staging"]);
+                    narrativityScores["PlotProg"] = ScoreNarrativityDifferenceMethod(results["PlotProg"], NormativeDeltas["PlotProg"]);
+                    narrativityScores["CogTension"] = ScoreNarrativityDifferenceMethod(results["CogTension"], NormativeDeltas["CogTension"]);
+                }
+
+                //calculate the overall narrativity score
+                narrativityScores.Add("Overall",
+                                                    (narrativityScores["Staging"] +
+                                                    narrativityScores["PlotProg"] +
+                                                    narrativityScores["CogTension"]) / 3);
+
+
+                //convert the narrativity scores to strings for the output
                 if (!Double.IsNaN(narrativityScores["Overall"])) Output[1] = narrativityScores["Overall"].ToString();
                 if (!Double.IsNaN(narrativityScores["Staging"])) Output[2] = narrativityScores["Staging"].ToString();
                 if (!Double.IsNaN(narrativityScores["PlotProg"])) Output[3] = narrativityScores["PlotProg"].ToString();
@@ -252,6 +307,14 @@ namespace NarrativeArc
             NormativeArcs.Add("PlotProg", new double[Segments]);
             NormativeArcs.Add("CogTension", new double[Segments]);
 
+            //here, we need to go in and actually set up our normative arrays that we'll use to calculate narrativity scores from Frechet Distance
+            NormativeArcsFrechet = new Dictionary<string, List<double[]>>();
+            NormativeArcsFrechet.Add("Staging", new List<double[]>());
+            NormativeArcsFrechet.Add("PlotProg", new List<double[]>());
+            NormativeArcsFrechet.Add("CogTension", new List<double[]>());
+
+            
+
             //old version that uses only 4 diff scores to calculate AON shape
             //NormativeDeltas = new Dictionary<string, double[]>();
             //NormativeDeltas.Add("Staging", new double[Segments - 1]);
@@ -271,15 +334,32 @@ namespace NarrativeArc
 
             for (int i = 0; i < Segments; i++)
             {
-                NormativeArcs["Staging"][i] = (StagingX2 * Math.Pow(segmentPointsScaled[i] + 1, 2)) + (StagingX * (segmentPointsScaled[i] + 1)) + StagingC;
-                NormativeArcs["PlotProg"][i] = (ProgX2 * Math.Pow(segmentPointsScaled[i] + 1, 2)) + (ProgX * (segmentPointsScaled[i] + 1)) + ProgC;
-                NormativeArcs["CogTension"][i] = (CogTensX2 * Math.Pow(segmentPointsScaled[i] + 1, 2)) + (CogTensX * (segmentPointsScaled[i] + 1)) + CogTensC;
+                //these are our normative arc arrays
+                NormativeArcs["Staging"][i] = (StagingX2 * Math.Pow(segmentPointsScaled[i], 2)) + (StagingX * (segmentPointsScaled[i])) + StagingC;
+                NormativeArcs["PlotProg"][i] = (ProgX2 * Math.Pow(segmentPointsScaled[i], 2)) + (ProgX * (segmentPointsScaled[i])) + ProgC;
+                NormativeArcs["CogTension"][i] = (CogTensX2 * Math.Pow(segmentPointsScaled[i], 2)) + (CogTensX * (segmentPointsScaled[i])) + CogTensC;
             }
 
 
 
             //scale these out exactly like we would do for the results themselves
             NormativeArcs = scaleResults(NormativeArcs);
+
+
+            //now that we've scaled these results, we can build our list out for calculating Frechet Distance
+            //this is what we use to scale the Frechet value outputs
+            FrechetRescalingValues = new Dictionary<string, double> { { "Staging", (NormativeArcs["Staging"].Max() - NormativeArcs["Staging"].Min()) / 2},
+                                                                  { "PlotProg", (NormativeArcs["PlotProg"].Max() - NormativeArcs["PlotProg"].Min()) / 2},
+                                                                  { "CogTension", (NormativeArcs["CogTension"].Max() - NormativeArcs["CogTension"].Min()) / 2} };
+
+
+            for (int i = 0; i < Segments; i++)
+            {
+                NormativeArcsFrechet["Staging"].Add(new double[] { i+1, NormativeArcs["Staging"][i] });
+                NormativeArcsFrechet["PlotProg"].Add(new double[] { i+1, NormativeArcs["PlotProg"][i] });
+                NormativeArcsFrechet["CogTension"].Add(new double[] { i+1, NormativeArcs["CogTension"][i] });
+            }
+
 
 
             //set the first "delta" point to be the same as the first point of the related dimension. basically, this is a "Delta from zero"
@@ -416,7 +496,7 @@ namespace NarrativeArc
         }
 
 
-        private double scoreNarrativity(double[] resultVector, double[] normativeDeltas)
+        private double ScoreNarrativityDifferenceMethod(double[] resultVector, double[] normativeDeltas)
         {
 
             //old version without "delta from zero
@@ -442,6 +522,7 @@ namespace NarrativeArc
         public void ImportSettings(Dictionary<string, string> SettingsDict)
         {
             scalingMethod = SettingsDict["scalingMethod"];
+            narrativityScoringMethod = SettingsDict["scoringMethod"];
             Segments = int.Parse(SettingsDict["Segments"]);
             includeDataPoints = Boolean.Parse(SettingsDict["includeDataPoints"]);
             AllowDimensionDependence = Boolean.Parse(SettingsDict["allowDependence"]);
@@ -451,6 +532,7 @@ namespace NarrativeArc
         {
             Dictionary<string, string> SettingsDict = new Dictionary<string, string>();
             SettingsDict.Add("scalingMethod", scalingMethod);
+            SettingsDict.Add("scoringMethod", narrativityScoringMethod);
             SettingsDict.Add("Segments", Segments.ToString());
             SettingsDict.Add("includeDataPoints", includeDataPoints.ToString());
             SettingsDict.Add("allowDependence", AllowDimensionDependence.ToString());
