@@ -24,7 +24,7 @@ namespace NarrativeArc
 
         public string PluginName { get; } = "Narrative Arc";
         public string PluginType { get; } = "Language Analysis";
-        public string PluginVersion { get; } = "1.2.0";
+        public string PluginVersion { get; } = "1.2.01";
         public string PluginAuthor { get; } = "Ryan L. Boyd (ryan@ryanboyd.io)";
         public string PluginDescription { get; } = "Calculates the Narrative Arc scores for each text. This plugin provides that actual \"trajectory\" data (i.e., staging, plot progression, and cognitive tension scores across text segments). This plugin also provides the \"narrativity\" scores for each text: how \"narrative-like\" each text is along each narrative dimension, plus the overall average." + Environment.NewLine + Environment.NewLine +
                                                    "For more information on the Narrative Arc and underlying methods, please see the following paper and website:" + Environment.NewLine + Environment.NewLine +
@@ -117,24 +117,39 @@ namespace NarrativeArc
             for (int i = 0; i < Input.StringArrayList.Count; i++)
             {
 
-                //we have 4 plus the segmentation because we have to prepend additional output
+                //we have to add a bunch of stuff ahead of the actual shapoe data, so we have to prepend additional output
                 //0: token count
                 //1: overall_narrativity
                 //2: narrativity for staging
                 //3: narrativity for plotprog
                 //4: narrativity for cogtens
+                //5: Peak for staging
+                //6: Peak for plotprog
+                //7: Peak for cogtens
+                //8: Slope for staging
+                //9: Slope for plotprog
+                //10: Slope for cogtens
 
-                
+                int headerBuffer;
+
+                if (includeDataPoints)
+                {
+                    headerBuffer = OutputHeaderData.Count - (Segments * 3);
+                }
+                else
+                {
+                    headerBuffer = OutputHeaderData.Count;
+                }
                 
 
                 string[] Output;
                 if (includeDataPoints)
                 {
-                    Output = new string[5 + (Segments * 3)];
+                    Output = new string[headerBuffer + (Segments * 3)];
                 }
                 else
                 {
-                    Output = new string[5];
+                    Output = new string[headerBuffer];
                 }
 
 
@@ -149,6 +164,14 @@ namespace NarrativeArc
                                                                                                           { "PlotProg", new List<double[]>() },
                                                                                                           { "CogTension", new List<double[]>() } };
 
+                //this dictionary will hold our peaks and slope data
+                Dictionary<string, double> slopesAndPeaks = new Dictionary<string, double> { { "Peak_Staging", double.NaN },
+                                                                                             { "Peak_PlotProg", double.NaN },
+                                                                                             { "Peak_CogTension", double.NaN },
+                                                                                             { "Slope_Staging", double.NaN },
+                                                                                             { "Slope_PlotProg", double.NaN },
+                                                                                             { "Slope_CogTension", double.NaN }};
+
                 int TokenCount = 0;
 
 
@@ -160,7 +183,6 @@ namespace NarrativeArc
                     results["PlotProg"][segCount] = ((double)segResults["2"] / segmentTexts[segCount].Length) * 100;
                     results["CogTension"][segCount] = ((double)segResults["3"] / segmentTexts[segCount].Length) * 100;
                 }
-
 
                 //z-score or Linear FS the results
                 results = scaleResults(results);
@@ -178,9 +200,8 @@ namespace NarrativeArc
                 }
 
 
-                //now we're moving in a direction of setting up the output
+                
 
-                Output[0] = TokenCount.ToString();
 
                 //calculate and store the narrativity scores
                 Dictionary<string, double> narrativityScores = new Dictionary<string, double>();
@@ -217,15 +238,44 @@ namespace NarrativeArc
                                                     narrativityScores["CogTension"]) / 3);
 
 
+                //calculate the peak data for each narrative process:
+                slopesAndPeaks["Peak_Staging"] = GetMaxIndex(results["Staging"]);
+                slopesAndPeaks["Peak_PlotProg"] = GetMaxIndex(results["PlotProg"]);
+                slopesAndPeaks["Peak_CogTension"] = GetMaxIndex(results["CogTension"]);
+
+                slopesAndPeaks["Slope_Staging"] = GetSlope(results["Staging"]);
+                slopesAndPeaks["Slope_PlotProg"] = GetSlope(results["PlotProg"]);
+                slopesAndPeaks["Slope_CogTension"] = GetSlope(results["CogTension"]);
+
+
+                // _____       _     _______               _   _                  ____        _               _   
+                //|  __ \     | |   |__   __|             | | | |                / __ \      | |             | |  
+                //| |__) _   _| |_     | | ___   __ _  ___| |_| |__   ___ _ __  | |  | |_   _| |_ _ __  _   _| |_ 
+                //|  ___| | | | __|    | |/ _ \ / _` |/ _ | __| '_ \ / _ | '__| | |  | | | | | __| '_ \| | | | __|
+                //| |   | |_| | |_     | | (_) | (_| |  __| |_| | | |  __| |    | |__| | |_| | |_| |_) | |_| | |_ 
+                //|_|    \__,_|\__|    |_|\___/ \__, |\___|\__|_| |_|\___|_|     \____/ \__,_|\__| .__/ \__,_|\__|
+                //                               __/ |                                           | |              
+                //                              |___/                                            |_|              
+                #region Assign data to output array
+                //now we're moving in a direction of setting up the output
+                Output[0] = TokenCount.ToString();
                 //convert the narrativity scores to strings for the output
                 if (!Double.IsNaN(narrativityScores["Overall"])) Output[1] = narrativityScores["Overall"].ToString();
                 if (!Double.IsNaN(narrativityScores["Staging"])) Output[2] = narrativityScores["Staging"].ToString();
                 if (!Double.IsNaN(narrativityScores["PlotProg"])) Output[3] = narrativityScores["PlotProg"].ToString();
                 if (!Double.IsNaN(narrativityScores["CogTension"])) Output[4] = narrativityScores["CogTension"].ToString();
+                if (!Double.IsNaN(slopesAndPeaks["Peak_Staging"])) Output[5] = slopesAndPeaks["Peak_Staging"].ToString();
+                if (!Double.IsNaN(slopesAndPeaks["Peak_PlotProg"])) Output[6] = slopesAndPeaks["Peak_PlotProg"].ToString();
+                if (!Double.IsNaN(slopesAndPeaks["Peak_CogTension"])) Output[7] = slopesAndPeaks["Peak_CogTension"].ToString();
+                if (!Double.IsNaN(slopesAndPeaks["Slope_Staging"])) Output[8] = slopesAndPeaks["Slope_Staging"].ToString();
+                if (!Double.IsNaN(slopesAndPeaks["Slope_PlotProg"])) Output[9] = slopesAndPeaks["Slope_PlotProg"].ToString();
+                if (!Double.IsNaN(slopesAndPeaks["Slope_CogTension"])) Output[10] = slopesAndPeaks["Slope_CogTension"].ToString();
 
 
-                //start at position 5 because we have output in the first 5 elements already
-                int countPosition = 5;
+                #endregion
+
+                    //start at position 5 because we have output in the first 5 elements already
+                int countPosition = headerBuffer;
 
                 //if we choose to include the actual datapoints in our output
                 if (includeDataPoints)
@@ -283,6 +333,12 @@ namespace NarrativeArc
             OutputHeaderData.Add(2, "Narrativity_Staging");
             OutputHeaderData.Add(3, "Narrativity_PlotProg");
             OutputHeaderData.Add(4, "Narrativity_CogTension");
+            OutputHeaderData.Add(5, "Peak_Staging");
+            OutputHeaderData.Add(6, "Peak_PlotProg");
+            OutputHeaderData.Add(7, "Peak_CogTension");
+            OutputHeaderData.Add(8, "Slope_Staging");
+            OutputHeaderData.Add(9, "Slope_PlotProg");
+            OutputHeaderData.Add(10, "Slope_CogTension");
 
             if (includeDataPoints) { 
                 int countPosition = OutputHeaderData.Count;
@@ -513,6 +569,59 @@ namespace NarrativeArc
             double narrativity = cosineSim(normativeDeltas, resultDeltas);
             return (narrativity * 100);
         }
+
+        private int GetMaxIndex(double[] inputArray)
+        {
+
+            if (inputArray.Length < 1) return 0;
+
+            int maxIndex = 0;
+            double currentMax = inputArray[0];
+
+            for (int i = 1; i < inputArray.Length; i++)
+            {
+                if (inputArray[i] > currentMax) maxIndex = i;
+            }
+
+            return (maxIndex + 1);
+
+        }
+
+
+        private double GetSlope(double[] y)
+        {
+
+            int N = y.Length;
+
+            if (N < 1) return double.NaN;
+
+            //create our x array
+            double[] x = new double[N];
+            for (int i = 0; i < N; i++) x[i] = i + 1;
+
+            //find xy
+            double[] xy = new double[N];
+            for (int i = 0; i < N; i++) xy[i] = x[i] * y[i];
+
+            //find x-squared
+            double[] xx = new double[N];
+            for (int i = 0; i < N; i++) xx[i] = Math.Pow(x[i], 2);
+
+            //get sums! get sums!
+            double Σx = x.Sum();
+            double Σy = y.Sum();
+            double Σxy = xy.Sum();
+            double Σxx = xx.Sum();
+
+            double slope = ((N * Σxy) - (Σx * Σy)) / ((N * Σxx) - Math.Pow(Σx, 2));
+            double intercept = (Σy - (slope * Σx)) / N;
+
+            return slope;
+
+        }
+
+        
+
 
 
 
